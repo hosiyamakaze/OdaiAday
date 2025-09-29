@@ -1,4 +1,4 @@
-#SJIS $Workfile: OdaiAday.ps1 $$Revision: 5 $$Date: 25/01/09 22:18 $
+#SJIS $Workfile: OdaiAday.ps1 $$Revision: 7 $$Date: 25/09/28 15:09 $
 #$NoKeywords: $
 
 Add-Type -AssemblyName System.Windows.Forms
@@ -30,7 +30,7 @@ for ($i=0;-not $foundToc -and  $i -lt 100;$i ++) {
         # "^目[ 　]*次"を含むブロックから長さが0より長い行をランダムに選択
         $tocBlock = $blocks | Where-Object { $_ -match "^目[ 　]*次" }
         if ($tocBlock) {
-            $lines = $tocBlock -split "`r?`n" | Where-Object { $_.Length -gt 0 -and $_ -notmatch("(目[ 　]*次|はじめに|まえがき|おわりに|まとめ|あとがき)")}
+            $lines = $tocBlock -split "`r?`n" | Where-Object { $_.Length -gt 0 -and $_ -notmatch("(目[ 　]*次|はじめに|まえがき|おわりに|まとめ|あとがき|参考|付録|巻末資料|用語解説)")}
             if ($lines.Length -gt 0) {
                 $foundToc = $true
                 $randomLine = $lines | Get-Random
@@ -48,7 +48,23 @@ if($foundToc){
     $message = "$fileName($readStatus)`n`n$randomLine"
     Write-EventLog -LogName "OdaiAdayLog" -Source "OdaiAday_ps1" -EntryType Information -EventID 0 -Message $message # メッセージをイベントログに記録
     [System.Windows.Forms.MessageBox]::Show($message, "今日のお題", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Information)
-    
+
+    #----- 同内容をE-Mail(hi-hoから携帯)する
+    # SMTPクライアントを作成
+    $smtp = New-Object System.Net.Mail.SmtpClient("smtp.example.com", 587)
+    $smtp.EnableSsl = $false # $true
+    $smtp.Credentials = New-Object System.Net.NetworkCredential("yourmail@example.com", "yourpassword")
+
+    # メール内容を作成
+    $emailmsg = New-Object System.Net.Mail.MailMessage
+    $emailmsg.From = "yourmail@example.com"
+    $emailmsg.To.Add("receiver@example.com")
+    $emailmsg.Subject = "今日のお題"
+    $emailmsg.Body = $message + [Environment]::NewLine
+
+    # 送信
+    $smtp.Send($emailmsg)
+
 }else{
     [System.Windows.Forms.MessageBox]::Show("目次がありません。", "今日のお題", [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error)
 }
